@@ -1,0 +1,62 @@
+---
+interface Props {
+	kicker: string;
+	title: string;
+	description: string;
+}
+
+const { kicker, title, description } = Astro.props;
+---
+
+<header class="page-hero">
+	<div class="shell page-hero-inner">
+		<div>
+			<p class="section-kicker">{kicker}</p>
+			<h1>{title}</h1>
+			<p class="description">{description}</p>
+			<slot />
+		</div>
+	</div>
+</header>
+
+<style>
+	.page-hero {
+		position: relative;
+		min-height: 560px;
+		padding-top: 8.5rem;
+		overflow: hidden;
+		border-bottom: 1px solid var(--line);
+		background: var(--void);
+	}
+
+	.page-hero-inner {
+		position: relative;
+		z-index: 2;
+		display: flex;
+		min-height: 410px;
+		align-items: center;
+	}
+
+	h1 {
+		max-width: 1000px;
+	}
+
+	.description {
+		max-width: 690px;
+		margin: 1.75rem 0 0;
+		color: var(--secondary);
+		font-size: clamp(1.06rem, 1.8vw, 1.25rem);
+		line-height: 1.6;
+	}
+
+	@media (max-width: 800px) {
+		.page-hero {
+			min-height: 500px;
+		}
+
+		.page-hero-inner {
+			min-height: 350px;
+		}
+
+	}
+</style>

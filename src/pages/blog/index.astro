@@ -1,0 +1,493 @@
+---
+import { getCollection } from 'astro:content';
+import FormattedDate from '../../components/FormattedDate.astro';
+import PageHero from '../../components/PageHero.astro';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { SITE_DESCRIPTION } from '../../consts';
+
+const includeDrafts = import.meta.env.DEV;
+const posts = (await getCollection('blog', ({ data }) => includeDrafts || !data.draft)).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const readingMinutes = (body = '') =>
+	Math.max(1, Math.ceil(body.trim().split(/\s+/).filter(Boolean).length / 220));
+const featured = posts.find((post) => post.data.featured) ?? posts[0];
+const orderedPosts = featured
+	? [featured, ...posts.filter((post) => post.id !== featured.id)]
+	: posts;
+const categories = [...new Set(posts.map((post) => post.data.category))];
+const tags = [...new Set(posts.flatMap((post) => post.data.tags))];
+const hasDraftPreviews = posts.some((post) => post.data.draft);
+---
+
+<SiteLayout title="Blog - elure" description={SITE_DESCRIPTION}>
+	<PageHero
+		kicker="Technical publication"
+		title="Research, writeups, and field notes."
+		description="Vuln research, CTF writeups, hardware, and infra setup."
+	/>
+
+	<section class="browse-section">
+		<div class="shell">
+			{
+				hasDraftPreviews && (
+					<p class="preview-note" role="status">
+						Local preview: drafts are shown here but excluded from production.
+					</p>
+				)
+			}
+			<div class="browse-tools" hidden={posts.length === 0}>
+				<label class="search-field">
+					<span class="sr-only">Search articles</span>
+					<input data-blog-search type="search" placeholder="Search titles, topics, and tags…" />
+					<kbd>/</kbd>
+				</label>
+
+				<div class="desktop-filters" aria-label="Filter by category">
+					<button class="active" type="button" data-category="all" aria-pressed="true">All</button>
+					{categories.map((category) => <button type="button" data-category={category} aria-pressed="false">{category}</button>)}
+				</div>
+
+				<details class="mobile-filters">
+					<summary>Filter articles</summary>
+					<div>
+						<button class="active" type="button" data-category="all" aria-pressed="true">All</button>
+						{categories.map((category) => <button type="button" data-category={category} aria-pressed="false">{category}</button>)}
+					</div>
+				</details>
+			</div>
+
+			<p
+				class="result-count"
+				aria-live="polite"
+				data-result-count
+				hidden={posts.length === 0}
+			>
+				{posts.length} {posts.length === 1 ? 'article' : 'articles'}
+			</p>
+
+			<div class="article-list">
+				{
+					orderedPosts.map((post) => (
+						<article
+							class="article-row"
+							data-article
+							data-category={post.data.category}
+							data-search={`${post.data.title} ${post.data.description} ${post.data.tags.join(' ')}`.toLowerCase()}
+						>
+							<a href={`/blog/${post.id}`}>
+								<div class="article-meta">
+									{post.data.draft && <span class="draft-label">Draft</span>}
+									{post.id === featured?.id && <span>Featured</span>}
+									<span>{post.data.category}</span>
+									<FormattedDate date={post.data.pubDate} />
+									<span>{readingMinutes(post.body)} min read</span>
+								</div>
+								<div class="article-copy">
+									<h2>{post.data.title}</h2>
+									<p>{post.data.description}</p>
+								</div>
+							</a>
+						</article>
+					))
+				}
+			</div>
+
+			<div class="empty-state" data-empty hidden={posts.length > 0}>
+				<h2>{posts.length > 0 ? 'No article found.' : 'No published notes yet.'}</h2>
+				<p>
+					{posts.length > 0
+						? 'Try a broader term or clear the category filter.'
+						: 'Published writing will appear here.'}
+				</p>
+				{posts.length > 0 && <button class="button button-secondary" type="button" data-clear>Clear filters</button>}
+			</div>
+
+			{
+				posts.length > 0 && (
+					<div class="archive-panel">
+						<div>
+							<p class="tag-heading">Browse by tag</p>
+							<div class="tag-cloud">
+								{tags.map((tag) => <button type="button" data-tag={tag} aria-pressed="false">{tag}</button>)}
+							</div>
+						</div>
+					</div>
+				)
+			}
+		</div>
+	</section>
+</SiteLayout>
+
+<script>
+	const input = document.querySelector<HTMLInputElement>('[data-blog-search]');
+	const articles = [...document.querySelectorAll<HTMLElement>('[data-article]')];
+	const categoryButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-category]')];
+	const tagButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-tag]')];
+	const count = document.querySelector<HTMLElement>('[data-result-count]');
+	const empty = document.querySelector<HTMLElement>('[data-empty]');
+	const clear = document.querySelector<HTMLButtonElement>('[data-clear]');
+	let activeCategory = 'all';
+	let activeTag = new URLSearchParams(location.search).get('tag') || '';
+
+	const filter = () => {
+		const query = (input?.value || '').trim().toLowerCase();
+		let visible = 0;
+		articles.forEach((article) => {
+			const categoryMatch = activeCategory === 'all' || article.dataset.category === activeCategory;
+			const searchMatch = !query || article.dataset.search?.includes(query);
+			const tagMatch = !activeTag || article.dataset.search?.includes(activeTag.toLowerCase());
+			const show = Boolean(categoryMatch && searchMatch && tagMatch);
+			article.hidden = !show;
+			if (show) visible++;
+		});
+		if (count) {
+			count.textContent = `${visible} ${visible === 1 ? 'article' : 'articles'}`;
+		}
+		if (empty) empty.hidden = visible > 0;
+	};
+
+	categoryButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			activeCategory = button.dataset.category || 'all';
+			categoryButtons.forEach((candidate) => {
+				const selected = candidate.dataset.category === activeCategory;
+				candidate.classList.toggle('active', selected);
+				candidate.setAttribute('aria-pressed', String(selected));
+			});
+			filter();
+		});
+	});
+
+	tagButtons.forEach((button) => button.addEventListener('click', () => {
+		activeTag = activeTag === button.dataset.tag ? '' : button.dataset.tag || '';
+		tagButtons.forEach((candidate) => {
+			const selected = candidate.dataset.tag === activeTag;
+			candidate.classList.toggle('active', selected);
+			candidate.setAttribute('aria-pressed', String(selected));
+		});
+		filter();
+	}));
+	input?.addEventListener('input', () => filter());
+	clear?.addEventListener('click', () => {
+		if (input) input.value = '';
+		activeCategory = 'all';
+		activeTag = '';
+		categoryButtons.forEach((button) => {
+			const selected = button.dataset.category === 'all';
+			button.classList.toggle('active', selected);
+			button.setAttribute('aria-pressed', String(selected));
+		});
+		tagButtons.forEach((button) => {
+			button.classList.remove('active');
+			button.setAttribute('aria-pressed', 'false');
+		});
+		filter();
+		input?.focus();
+	});
+
+	if (activeTag) {
+		tagButtons.forEach((button) => {
+			const selected = button.dataset.tag === activeTag;
+			button.classList.toggle('active', selected);
+			button.setAttribute('aria-pressed', String(selected));
+		});
+		filter();
+	}
+
+	document.addEventListener('keydown', (event) => {
+		if (event.key === '/' && document.activeElement !== input) {
+			event.preventDefault();
+			input?.focus();
+		}
+	});
+</script>
+
+<style>
+	.browse-section {
+		padding: 4rem 0 10rem;
+		background: var(--deep-space);
+	}
+
+	.preview-note {
+		margin: 0 0 1.25rem;
+		padding: 0.75rem 0;
+		border-bottom: 1px solid var(--line);
+		color: var(--secondary);
+		font-size: 0.88rem;
+	}
+
+	.browse-tools {
+		display: flex;
+		margin-bottom: 1.25rem;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1.25rem;
+	}
+
+	.search-field {
+		display: flex;
+		width: min(480px, 100%);
+		min-height: 52px;
+		padding: 0 0.85rem;
+		align-items: center;
+		gap: 0.7rem;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+
+	.search-field:focus-within {
+		outline: 2px solid var(--electric-blue);
+		outline-offset: 3px;
+	}
+
+	.search-field input {
+		min-width: 0;
+		flex: 1;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: var(--starlight);
+	}
+
+	.search-field input::placeholder {
+		color: var(--quiet);
+	}
+
+	kbd {
+		padding: 0.15rem 0.42rem;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		color: var(--quiet);
+		font-family: ui-monospace, monospace;
+		font-size: 0.72rem;
+	}
+
+	.desktop-filters {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.35rem;
+	}
+
+	.desktop-filters button,
+	.mobile-filters button,
+	.tag-cloud button {
+		min-width: 68px;
+		min-height: 40px;
+		padding: 0.4rem 0.95rem;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--secondary);
+		font-size: 0.78rem;
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 160ms ease,
+			border-color 160ms ease,
+			color 160ms ease;
+	}
+
+	.desktop-filters button:hover,
+	.mobile-filters button:hover {
+		border-color: var(--line-strong);
+		color: var(--starlight);
+	}
+
+	.desktop-filters button.active,
+	.desktop-filters button[aria-pressed='true'],
+	.mobile-filters button.active,
+	.mobile-filters button[aria-pressed='true'] {
+		border-color: color-mix(in srgb, var(--ultraviolet) 55%, transparent);
+		background: color-mix(in srgb, var(--ultraviolet) 14%, transparent);
+		color: var(--starlight);
+	}
+
+	.mobile-filters {
+		display: none;
+	}
+
+	.result-count {
+		margin: 0 0 2rem;
+		color: var(--quiet);
+		font-size: 0.82rem;
+	}
+
+	.article-list {
+		border-top: 1px solid var(--line-strong);
+	}
+
+	.article-row {
+		border-bottom: 1px solid var(--line);
+	}
+
+	.article-row a {
+		display: grid;
+		padding: 2rem 0;
+		grid-template-columns: minmax(130px, 0.28fr) minmax(0, 1fr);
+		gap: clamp(1.5rem, 4vw, 4rem);
+		color: var(--starlight);
+		text-decoration: none;
+	}
+
+	.article-meta {
+		display: flex;
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.35rem;
+		color: var(--quiet);
+		font-size: 0.78rem;
+		line-height: 1.45;
+	}
+
+	.article-meta > :first-child {
+		color: var(--ultraviolet-hot);
+		font-weight: 580;
+	}
+
+	.article-meta .draft-label {
+		padding: 0.06rem 0.5rem;
+		border: 1px solid var(--line-strong);
+		border-radius: 999px;
+		color: var(--secondary);
+		font-weight: 560;
+	}
+
+	.article-copy {
+		max-width: 780px;
+	}
+
+	.article-copy h2 {
+		font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+		line-height: 1.08;
+		transition: color 160ms ease;
+	}
+
+	.article-row a:is(:hover, :focus-visible) h2 {
+		color: var(--ultraviolet-hot);
+	}
+
+	.article-copy p {
+		margin: 0.85rem 0 0;
+		color: var(--secondary);
+		font-size: 1rem;
+		line-height: 1.6;
+	}
+
+	.empty-state {
+		padding: 6rem 1rem;
+		text-align: center;
+	}
+
+	.empty-state p {
+		color: var(--secondary);
+	}
+
+	.archive-panel {
+		margin-top: 5rem;
+		padding-top: 3rem;
+		border-top: 1px solid var(--line);
+	}
+
+	.tag-heading {
+		margin: 0 0 1rem;
+		color: var(--secondary);
+		font-size: 0.88rem;
+		font-weight: 580;
+	}
+
+	.tag-cloud {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.tag-cloud button {
+		border-color: var(--line);
+	}
+
+	.tag-cloud button:hover,
+	.tag-cloud button.active,
+	.tag-cloud button[aria-pressed='true'] {
+		color: var(--starlight);
+		border-color: var(--ultraviolet);
+	}
+
+	@media (max-width: 980px) {
+		.browse-tools {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.desktop-filters {
+			justify-content: flex-start;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.desktop-filters {
+			display: none;
+		}
+
+		.mobile-filters {
+			display: block;
+			border-block: 1px solid var(--line);
+		}
+
+		.mobile-filters summary {
+			display: flex;
+			min-height: 52px;
+			padding: 0.65rem 0.25rem;
+			align-items: center;
+			justify-content: space-between;
+			color: var(--starlight);
+			font-size: 0.88rem;
+			font-weight: 590;
+			cursor: pointer;
+			list-style: none;
+		}
+
+		.mobile-filters summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.mobile-filters summary::after {
+			color: var(--secondary);
+			content: '+';
+			font-size: 1.0625rem;
+			transition: transform 240ms var(--ease-out);
+		}
+
+		.mobile-filters[open] summary::after {
+			transform: rotate(45deg);
+		}
+
+		.mobile-filters > div {
+			display: flex;
+			padding-bottom: 0.85rem;
+			flex-wrap: wrap;
+			gap: 0.45rem;
+		}
+
+		.article-row a {
+			grid-template-columns: 1fr;
+			gap: 1rem;
+		}
+
+		.article-meta {
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 0.4rem 0.7rem;
+		}
+
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.mobile-filters summary::after {
+			transition: none;
+		}
+	}
+</style>

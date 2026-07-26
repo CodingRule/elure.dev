@@ -1,0 +1,757 @@
+<div
+	class="black-hole-scene"
+	data-black-hole
+	data-model="realtime-schwarzschild-approximation"
+	role="img"
+	aria-label="A live three-dimensional visualization of light bending around a Schwarzschild black hole and its accretion disc"
+>
+	<canvas aria-hidden="true"></canvas>
+	<div class="fallback" aria-hidden="true"></div>
+	<div class="haze" aria-hidden="true"></div>
+</div>
+
+<script>
+	import {
+		ACESFilmicToneMapping,
+		MathUtils,
+		Mesh,
+		PerspectiveCamera,
+		PlaneGeometry,
+		Scene,
+		ShaderMaterial,
+		SRGBColorSpace,
+		Vector2,
+		Vector3,
+		WebGLRenderer,
+	} from 'three';
+
+	(() => {
+		const root = document.querySelector<HTMLElement>('[data-black-hole]');
+		const canvas = root?.querySelector<HTMLCanvasElement>('canvas');
+		if (!root || !canvas || root.dataset.ready === 'true') return;
+		root.dataset.ready = 'true';
+
+		const vertex = `
+			varying vec2 v_ndc;
+
+			void main() {
+				v_ndc = position.xy;
+				gl_Position = vec4(position.xy, 0.0, 1.0);
+			}
+		`;
+
+		const fragment = `
+			precision highp float;
+
+			varying vec2 v_ndc;
+
+			uniform vec2 u_resolution;
+			uniform vec3 u_cameraPosition;
+			uniform vec3 u_cameraForward;
+			uniform vec3 u_cameraRight;
+			uniform vec3 u_cameraUp;
+			uniform vec3 u_discNormal;
+			uniform float u_tanHalfFov;
+			uniform float u_aspect;
+			uniform float u_screenShift;
+			uniform float u_stepBudget;
+			uniform float u_time;
+
+			#define PI 3.141592653589793
+			#define TAU 6.283185307179586
+
+			const float SCHWARZSCHILD_RADIUS = 1.0;
+			const float DISC_INNER_RADIUS = 3.05;
+			const float DISC_OUTER_RADIUS = 6.35;
+			const float ESCAPE_RADIUS = 8.8;
+			const int MAX_GEODESIC_STEPS = 96;
+
+			float hash21(vec2 p) {
+				p = fract(p * vec2(123.34, 456.21));
+				p += dot(p, p + 45.32);
+				return fract(p.x * p.y);
+			}
+
+			const float NOISE_PERIOD = 256.0;
+
+			float valueNoise(vec2 p) {
+				p = mod(p, NOISE_PERIOD);
+				vec2 cell = floor(p);
+				vec2 local = fract(p);
+				local = local * local * (3.0 - 2.0 * local);
+				vec2 cellX = mod(cell + vec2(1.0, 0.0), NOISE_PERIOD);
+				vec2 cellY = mod(cell + vec2(0.0, 1.0), NOISE_PERIOD);
+				vec2 cellXY = mod(cell + vec2(1.0), NOISE_PERIOD);
+				return mix(
+					mix(hash21(cell), hash21(cellX), local.x),
+					mix(hash21(cellY), hash21(cellXY), local.x),
+					local.y
+				);
+			}
+
+			float discNoise(vec2 p) {
+				float sum = 0.0;
+				float weight = 0.58;
+				for (int octave = 0; octave < 3; octave++) {
+					sum += valueNoise(p) * weight;
+					p = mat2(1.62, 1.18, -1.18, 1.62) * p + 7.13;
+					weight *= 0.48;
+				}
+				return sum;
+			}
+
+			vec3 thermalColour(float temperature) {
+				vec3 redshifted = vec3(0.20, 0.004, 0.075);
+				vec3 magenta = vec3(1.16, 0.035, 0.44);
+				vec3 ultraviolet = vec3(0.61, 0.15, 1.52);
+				vec3 whiteHot = vec3(1.48, 1.08, 1.62);
+				vec3 blueHot = vec3(0.46, 0.73, 1.68);
+
+				vec3 outer = mix(
+					redshifted,
+					magenta,
+					smoothstep(0.035, 0.34, temperature)
+				);
+				vec3 middle = mix(
+					magenta,
+					ultraviolet,
+					smoothstep(0.28, 0.61, temperature)
+				);
+				vec3 colour = mix(
+					outer,
+					middle,
+					smoothstep(0.24, 0.47, temperature)
+				);
+				colour = mix(
+					colour,
+					whiteHot,
+					smoothstep(0.60, 0.88, temperature)
+				);
+				return mix(colour, blueHot, smoothstep(0.91, 1.24, temperature));
+			}
+
+			vec3 starLayer(vec2 sphericalUv, vec2 density, float threshold, float size) {
+				vec2 grid = sphericalUv * density;
+				vec2 cell = floor(grid);
+				vec2 local = fract(grid) - 0.5;
+				float seed = hash21(cell);
+				vec2 offset = vec2(hash21(cell + 19.1), hash21(cell + 71.7)) - 0.5;
+				float point = 1.0 - smoothstep(
+					0.0,
+					size,
+					length(local - offset * 0.62)
+				);
+				point *= step(threshold, seed);
+				float tint = hash21(cell + 33.3);
+				vec3 colour = mix(
+					vec3(0.43, 0.58, 1.12),
+					vec3(1.05, 0.70, 1.13),
+					tint
+				);
+				float twinkle = 0.82 + 0.18 * sin(mod(u_time * (0.45 + seed), TAU) + seed * 80.0);
+				return colour * point * twinkle * mix(0.45, 1.75, seed);
+			}
+
+			vec3 proceduralSky(vec3 direction) {
+				direction = normalize(direction);
+				vec2 sphericalUv = vec2(
+					atan(direction.z, direction.x) / TAU + 0.5,
+					asin(clamp(direction.y, -1.0, 1.0)) / PI + 0.5
+				);
+
+				vec3 stars = starLayer(sphericalUv, vec2(510.0, 255.0), 0.9937, 0.105);
+				stars += starLayer(sphericalUv + vec2(0.173, 0.071), vec2(870.0, 435.0), 0.9976, 0.12) * 0.62;
+
+				vec3 galacticNormal = normalize(vec3(0.27, 0.91, -0.31));
+				float latitude = abs(dot(direction, galacticNormal));
+				float dust = valueNoise(sphericalUv * vec2(19.0, 8.0));
+				float milkyWay = pow(max(0.0, 1.0 - latitude), 15.0) * (0.17 + dust * 0.22);
+				vec3 background = vec3(0.0012, 0.0015, 0.0045);
+				background += milkyWay * vec3(0.074, 0.032, 0.17);
+				return background + stars;
+			}
+
+			vec3 schwarzschildAcceleration(vec3 position, float angularMomentumSquared) {
+				float radiusSquared = max(dot(position, position), 0.0001);
+				float inverseRadius = inversesqrt(radiusSquared);
+				float inverseRadius5 = inverseRadius * inverseRadius * inverseRadius
+					* inverseRadius * inverseRadius;
+
+				return -1.5 * SCHWARZSCHILD_RADIUS * angularMomentumSquared
+					* position * inverseRadius5;
+			}
+
+			vec4 sampleAccretionDisc(vec3 hit, vec3 rayVelocity) {
+				vec3 radial = hit - u_discNormal * dot(hit, u_discNormal);
+				float radius = length(radial);
+				float innerFade = smoothstep(
+					DISC_INNER_RADIUS,
+					DISC_INNER_RADIUS + 0.22,
+					radius
+				);
+				float outerFade = 1.0 - smoothstep(
+					DISC_OUTER_RADIUS - 0.72,
+					DISC_OUTER_RADIUS,
+					radius
+				);
+				float radialWindow = innerFade * outerFade;
+				if (radialWindow <= 0.0) return vec4(0.0);
+
+				vec3 reference = abs(u_discNormal.y) < 0.92
+					? vec3(0.0, 1.0, 0.0)
+					: vec3(1.0, 0.0, 0.0);
+				vec3 discX = normalize(cross(reference, u_discNormal));
+				vec3 discY = cross(u_discNormal, discX);
+				float azimuth = atan(dot(radial, discY), dot(radial, discX));
+
+				float orbitalPhase = u_time * 0.42 / pow(max(radius, 1.0), 1.5);
+				vec2 flowUv = vec2(
+					azimuth * 5.5 - orbitalPhase * 18.0 - log(radius) * 9.0,
+					radius * 4.6
+				);
+				float turbulence = discNoise(flowUv);
+				float filament = 0.5 + 0.5 * sin(
+					mod(azimuth * 9.0 - log(radius) * 24.0 - orbitalPhase * 25.0, TAU)
+				);
+				float density = mix(0.48, 1.0, turbulence) * mix(0.76, 1.08, filament);
+
+				float beta = clamp(sqrt(0.5 * SCHWARZSCHILD_RADIUS / radius), 0.0, 0.52);
+				vec3 gasDirection = normalize(cross(u_discNormal, radial));
+				vec3 photonToObserver = normalize(-rayVelocity);
+				float lineOfSightVelocity = dot(gasDirection, photonToObserver);
+				float gamma = inversesqrt(max(1.0 - beta * beta, 0.001));
+				float doppler = 1.0 / max(
+					gamma * (1.0 - beta * lineOfSightVelocity),
+					0.08
+				);
+				float gravitationalShift = sqrt(max(
+					1.0 - SCHWARZSCHILD_RADIUS / radius,
+					0.001
+				));
+				float frequencyShift = clamp(gravitationalShift * doppler, 0.28, 1.8);
+
+				float innerBoundary = pow(
+					max(1.0 - sqrt(DISC_INNER_RADIUS / radius), 0.0),
+					0.25
+				);
+				float localTemperature = 2.05
+					* pow(DISC_INNER_RADIUS / radius, 0.75)
+					* innerBoundary;
+				float observedTemperature = localTemperature
+					* frequencyShift
+					* mix(0.87, 1.12, turbulence);
+
+				float beaming = clamp(pow(frequencyShift, 3.0), 0.12, 4.5);
+				float viewCosine = abs(dot(u_discNormal, normalize(rayVelocity)));
+				float limbDarkening = 0.58 + 0.42 * sqrt(viewCosine);
+				float opacity = clamp(
+					radialWindow * density * (0.58 + observedTemperature * 0.22),
+					0.0,
+					0.88
+				);
+				vec3 emission = thermalColour(observedTemperature)
+					* beaming
+					* limbDarkening
+					* (0.58 + density * 0.64);
+
+				return vec4(emission, opacity);
+			}
+
+			void main() {
+				vec2 sensor = v_ndc;
+				sensor.x -= u_screenShift;
+				vec3 velocity = normalize(
+					u_cameraForward
+					+ sensor.x * u_aspect * u_tanHalfFov * u_cameraRight
+					+ sensor.y * u_tanHalfFov * u_cameraUp
+				);
+				vec3 position = u_cameraPosition;
+
+				vec3 angularMomentum = cross(position, velocity);
+				float angularMomentumSquared = dot(angularMomentum, angularMomentum);
+
+				vec3 radiance = vec3(0.0);
+				float throughput = 1.0;
+				bool captured = false;
+				bool escaped = false;
+				float minimumRadius = length(position);
+				float accumulatedDeflection = 0.0;
+				float budgetQuality = clamp(
+					(u_stepBudget - 52.0) / (96.0 - 52.0),
+					0.0,
+					1.0
+				);
+				float farFieldStepLimit = mix(0.42, 0.30, budgetQuality);
+
+				for (int stepIndex = 0; stepIndex < MAX_GEODESIC_STEPS; stepIndex++) {
+					if (float(stepIndex) >= u_stepBudget) break;
+
+					float radius = length(position);
+					minimumRadius = min(minimumRadius, radius);
+
+					float stepSize = clamp(
+						(radius - SCHWARZSCHILD_RADIUS) * 0.16,
+						0.025,
+						farFieldStepLimit
+					);
+					vec3 acceleration = schwarzschildAcceleration(
+						position,
+						angularMomentumSquared
+					);
+					vec3 nextPosition = position
+						+ velocity * stepSize
+						+ 0.5 * acceleration * stepSize * stepSize;
+					vec3 nextAcceleration = schwarzschildAcceleration(
+						nextPosition,
+						angularMomentumSquared
+					);
+					vec3 nextVelocity = velocity
+						+ 0.5 * (acceleration + nextAcceleration) * stepSize;
+					float nextRadius = length(nextPosition);
+
+					accumulatedDeflection += length(nextVelocity - velocity);
+
+					float discSide = dot(position, u_discNormal);
+					float nextDiscSide = dot(nextPosition, u_discNormal);
+					if (
+						discSide * nextDiscSide < 0.0
+						&& throughput > 0.025
+					) {
+						float crossing = discSide / (discSide - nextDiscSide);
+						vec3 hit = mix(position, nextPosition, clamp(crossing, 0.0, 1.0));
+						float hitRadius = length(hit);
+						if (
+							hitRadius > DISC_INNER_RADIUS
+							&& hitRadius < DISC_OUTER_RADIUS
+						) {
+							vec4 discSample = sampleAccretionDisc(
+								hit,
+								mix(velocity, nextVelocity, crossing)
+							);
+							radiance += throughput * discSample.rgb * discSample.a;
+							throughput *= 1.0 - discSample.a;
+						}
+					}
+
+					if (nextRadius <= SCHWARZSCHILD_RADIUS * 1.012) {
+						captured = true;
+						break;
+					}
+
+					position = nextPosition;
+					velocity = nextVelocity;
+
+					if (
+						stepIndex > 6
+						&& nextRadius > ESCAPE_RADIUS
+						&& dot(position, velocity) > 0.0
+					) {
+						escaped = true;
+						break;
+					}
+				}
+
+				if (escaped && !captured) {
+					radiance += throughput * proceduralSky(normalize(velocity));
+				}
+
+				float photonSphere = 1.5 * SCHWARZSCHILD_RADIUS;
+				float criticality = exp(-abs(minimumRadius - photonSphere) * 7.5);
+				float pathBoost = clamp(accumulatedDeflection * 0.085, 0.0, 0.32);
+				radiance += radiance * criticality * pathBoost;
+
+				radiance *= 1.0 - 0.08 * smoothstep(
+					0.55,
+					1.45,
+					length(v_ndc * vec2(0.78, 0.92))
+				);
+
+				gl_FragColor = vec4(max(radiance, vec3(0.0)), 1.0);
+				#include <tonemapping_fragment>
+				#include <colorspace_fragment>
+			}
+		`;
+
+		let renderer: WebGLRenderer;
+		try {
+			renderer = new WebGLRenderer({
+				canvas,
+				antialias: false,
+				alpha: false,
+				depth: false,
+				stencil: false,
+				powerPreference: 'high-performance',
+			});
+		} catch {
+			root.classList.add('fallback-only');
+			return;
+		}
+
+		renderer.setClearColor(0x010104, 1);
+		renderer.outputColorSpace = SRGBColorSpace;
+		renderer.toneMapping = ACESFilmicToneMapping;
+		renderer.toneMappingExposure = 1.04;
+
+		const scene = new Scene();
+		const camera = new PerspectiveCamera(39, 1, 0.05, 30);
+		const cameraBase = new Vector3(0.18, 0.42, 7.65);
+		const cameraTarget = new Vector3(0, 0.02, 0);
+		camera.position.copy(cameraBase);
+		camera.lookAt(cameraTarget);
+		camera.updateMatrixWorld();
+
+		const uniforms = {
+			u_resolution: { value: new Vector2(1, 1) },
+			u_cameraPosition: { value: camera.position.clone() },
+			u_cameraForward: { value: new Vector3() },
+			u_cameraRight: { value: new Vector3() },
+			u_cameraUp: { value: new Vector3() },
+			u_discNormal: {
+				value: new Vector3(0, 0.965, 0.263).normalize(),
+			},
+			u_tanHalfFov: {
+				value: Math.tan(MathUtils.degToRad(camera.fov * 0.5)),
+			},
+			u_aspect: { value: 1 },
+			u_screenShift: { value: 0.32 },
+			u_stepBudget: { value: 40 },
+			u_time: { value: 0 },
+		};
+
+		const material = new ShaderMaterial({
+			vertexShader: vertex,
+			fragmentShader: fragment,
+			uniforms,
+			depthTest: false,
+			depthWrite: false,
+			toneMapped: true,
+		});
+		const geometry = new PlaneGeometry(2, 2);
+		const raySurface = new Mesh(geometry, material);
+		raySurface.frustumCulled = false;
+		scene.add(raySurface);
+
+		const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+		const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+		const cameraForward = new Vector3();
+		const cameraRight = new Vector3();
+		const cameraUp = new Vector3();
+		const drawingBufferSize = new Vector2();
+		const navigatorWithMemory = navigator as Navigator & { deviceMemory?: number };
+		const memoryInGb = navigatorWithMemory.deviceMemory ?? 8;
+		const logicalCores = navigator.hardwareConcurrency || 8;
+		const constrainedDevice = memoryInGb <= 4
+			|| logicalCores <= 4
+			|| renderer.capabilities.maxTextureSize <= 4096;
+		let frame = 0;
+		let visible = true;
+		let destroyed = false;
+		let lastRender = -Infinity;
+		const startTime = performance.now();
+		let timeOrigin = performance.now();
+		let pausedAt = 0;
+		const solveDuration = 720;
+		let targetStepBudget = 96;
+		let solverConverged = reducedMotion;
+		const frameInterval = 1000 / 30;
+
+		const syncCamera = () => {
+			camera.position.set(
+				cameraBase.x + pointer.x * 0.13,
+				cameraBase.y + pointer.y * 0.09,
+				cameraBase.z
+			);
+			camera.lookAt(cameraTarget);
+			camera.updateMatrixWorld();
+			camera.getWorldDirection(cameraForward);
+			cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+			cameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+			uniforms.u_cameraPosition.value.copy(camera.position);
+			uniforms.u_cameraForward.value.copy(cameraForward);
+			uniforms.u_cameraRight.value.copy(cameraRight);
+			uniforms.u_cameraUp.value.copy(cameraUp);
+		};
+
+		const resize = () => {
+			if (destroyed) return;
+			const width = Math.max(root.clientWidth, 1);
+			const height = Math.max(root.clientHeight, 1);
+			const compact = width <= 720;
+			const dprCap = compact
+				? (constrainedDevice ? 0.74 : 0.8)
+				: (constrainedDevice ? 0.92 : 1.15);
+			renderer.setPixelRatio(Math.min(devicePixelRatio || 1, dprCap));
+			renderer.setSize(width, height, false);
+			renderer.getDrawingBufferSize(drawingBufferSize);
+			uniforms.u_resolution.value.copy(drawingBufferSize);
+			uniforms.u_aspect.value = width / height;
+			uniforms.u_screenShift.value = compact ? 0.13 : 0.32;
+			targetStepBudget = constrainedDevice
+				? 52
+				: (compact ? 64 : 96);
+			uniforms.u_stepBudget.value = solverConverged
+				? targetStepBudget
+				: Math.min(uniforms.u_stepBudget.value, targetStepBudget * 0.42);
+			camera.aspect = width / height;
+			camera.updateProjectionMatrix();
+		};
+
+		const draw = (now: number) => {
+			if (destroyed) return;
+			if (!solverConverged) {
+				const progress = Math.min(1, Math.max(0, (now - startTime) / solveDuration));
+				const eased = 1 - Math.pow(1 - progress, 4);
+				uniforms.u_stepBudget.value = MathUtils.lerp(
+					targetStepBudget * 0.42,
+					targetStepBudget,
+					eased
+				);
+				if (progress >= 1) {
+					solverConverged = true;
+					uniforms.u_stepBudget.value = targetStepBudget;
+				}
+			}
+			if (!reducedMotion && solverConverged) {
+				pointer.x += (pointer.targetX - pointer.x) * 0.055;
+				pointer.y += (pointer.targetY - pointer.y) * 0.055;
+			}
+			syncCamera();
+			uniforms.u_time.value = reducedMotion ? 9.5 : (now - timeOrigin) / 1000;
+			renderer.render(scene, camera);
+		};
+
+		const stop = () => {
+			if (frame) cancelAnimationFrame(frame);
+			frame = 0;
+			if (!pausedAt) pausedAt = performance.now();
+		};
+
+		const rebaseClock = () => {
+			if (!pausedAt) return;
+			const now = performance.now();
+			const pausedFor = now - pausedAt;
+			const elapsed = now - timeOrigin;
+			pausedAt = 0;
+			if (pausedFor > 2000 && elapsed > 120000) timeOrigin = now;
+		};
+
+		const tick = (now: number) => {
+			frame = 0;
+			if (destroyed || reducedMotion || !visible || document.hidden) return;
+			if (now - lastRender >= frameInterval) {
+				draw(now);
+				lastRender = now;
+			}
+			frame = requestAnimationFrame(tick);
+		};
+
+		const start = () => {
+			if (
+				destroyed
+				|| reducedMotion
+				|| !visible
+				|| document.hidden
+				|| frame
+			) return;
+			rebaseClock();
+			frame = requestAnimationFrame(tick);
+		};
+
+		const renderStableFrame = () => {
+			if (destroyed || !visible || document.hidden) return;
+			draw(reducedMotion ? startTime + 9500 : performance.now());
+		};
+
+		const onPointerMove = (event: PointerEvent) => {
+			const rect = root.getBoundingClientRect();
+			if (!rect.width || !rect.height) return;
+			pointer.targetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+			pointer.targetY = -((event.clientY - rect.top) / rect.height - 0.5) * 2;
+		};
+
+		const onVisibilityChange = () => {
+			if (document.hidden) {
+				stop();
+			} else if (visible) {
+				if (reducedMotion) renderStableFrame();
+				else start();
+			}
+		};
+
+		const onContextLost = (event: Event) => {
+			event.preventDefault();
+			stop();
+			root.classList.add('fallback-only');
+		};
+
+		const onContextRestored = () => {
+			if (destroyed) return;
+			root.classList.remove('fallback-only');
+			renderer.resetState();
+			resize();
+			lastRender = -Infinity;
+			if (reducedMotion) renderStableFrame();
+			else start();
+		};
+
+		const watchdog = window.setInterval(() => {
+			if (destroyed || reducedMotion || document.hidden || !visible || frame) return;
+			start();
+		}, 4000);
+
+		const onPageShow = (event: PageTransitionEvent) => {
+			if (!event.persisted || destroyed) return;
+			lastRender = -Infinity;
+			if (reducedMotion) renderStableFrame();
+			else start();
+		};
+
+		const intersectionObserver = new IntersectionObserver(([entry]) => {
+			visible = entry.isIntersecting;
+			if (!visible) {
+				stop();
+			} else if (reducedMotion) {
+				renderStableFrame();
+			} else {
+				start();
+			}
+		}, { rootMargin: '120px' });
+
+		const resizeObserver = new ResizeObserver(() => {
+			resize();
+			if (reducedMotion) renderStableFrame();
+		});
+
+		const destroy = () => {
+			if (destroyed) return;
+			destroyed = true;
+			stop();
+			clearInterval(watchdog);
+			intersectionObserver.disconnect();
+			resizeObserver.disconnect();
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+			document.removeEventListener('astro:before-swap', destroy);
+			removeEventListener('pageshow', onPageShow);
+			canvas.removeEventListener('webglcontextlost', onContextLost);
+			canvas.removeEventListener('webglcontextrestored', onContextRestored);
+			if (!reducedMotion && finePointer) root.removeEventListener('pointermove', onPointerMove);
+			geometry.dispose();
+			material.dispose();
+			renderer.dispose();
+		};
+
+		if (!reducedMotion && finePointer) {
+			root.addEventListener('pointermove', onPointerMove, { passive: true });
+		}
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		document.addEventListener('astro:before-swap', destroy, { once: true });
+		canvas.addEventListener('webglcontextlost', onContextLost);
+		canvas.addEventListener('webglcontextrestored', onContextRestored);
+		addEventListener('pageshow', onPageShow);
+		intersectionObserver.observe(root);
+		resizeObserver.observe(root);
+
+		resize();
+		renderStableFrame();
+		if (!reducedMotion) start();
+	})();
+</script>
+
+<style>
+	.black-hole-scene {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		background: #010104;
+		isolation: isolate;
+	}
+
+	canvas,
+	.fallback,
+	.haze {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+
+	canvas {
+		z-index: 1;
+		display: block;
+	}
+
+	.fallback {
+		background:
+			radial-gradient(circle at 66% 48%, #030308 0 8.5%, transparent 8.8%),
+			radial-gradient(
+				ellipse at 66% 48%,
+				transparent 0 10.5%,
+				rgba(231, 216, 255, 0.9) 11.2%,
+				rgba(189, 61, 255, 0.52) 13.1%,
+				rgba(104, 31, 213, 0.34) 16.2%,
+				transparent 22%
+			),
+			#010104;
+		opacity: 0;
+	}
+
+	.fallback-only canvas {
+		display: none;
+	}
+
+	.fallback-only .fallback {
+		opacity: 1;
+	}
+
+	.haze {
+		z-index: 2;
+		background:
+			radial-gradient(
+				ellipse at 66% 48%,
+				transparent 0 18%,
+				rgba(103, 29, 207, 0.13) 35%,
+				transparent 64%
+			),
+			linear-gradient(90deg, rgba(1, 1, 4, 0.7) 0%, transparent 55%),
+			linear-gradient(
+				0deg,
+				var(--void) 0%,
+				transparent 17%,
+				transparent 83%,
+				rgba(1, 1, 4, 0.36) 100%
+			);
+		pointer-events: none;
+	}
+
+	:global(:root[data-theme='light']) .black-hole-scene {
+		opacity: 0.94;
+		filter: saturate(0.82) brightness(1.22);
+	}
+
+	@media (max-width: 720px) {
+		.haze {
+			background:
+				radial-gradient(
+					ellipse at 66% 48%,
+						transparent 0 20%,
+						rgba(103, 29, 207, 0.12) 38%,
+						transparent 68%
+				),
+				linear-gradient(90deg, rgba(1, 1, 4, 0.74) 10%, transparent 82%),
+				linear-gradient(
+					0deg,
+					var(--void) 0%,
+					transparent 24%,
+					transparent 79%,
+					rgba(1, 1, 4, 0.52) 100%
+				);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		canvas {
+			filter: saturate(0.92);
+		}
+	}
+</style>

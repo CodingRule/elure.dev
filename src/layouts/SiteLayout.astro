@@ -1,0 +1,52 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import CosmicNav from '../components/CosmicNav.astro';
+import LiquidDefs from '../components/LiquidDefs.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+	title: string;
+	description: string;
+	footer?: boolean;
+}
+
+const { title, description, footer = true } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={title} description={description} />
+		<slot name="head" />
+	</head>
+	<body>
+		<a class="skip-link" href="#main-content">Skip to content</a>
+		<LiquidDefs />
+		<CosmicNav />
+		<main id="main-content">
+			<slot />
+		</main>
+		{footer && <SiteFooter />}
+	</body>
+</html>
+
+<style>
+	.skip-link {
+		position: fixed;
+		z-index: 1000;
+		top: 0.75rem;
+		left: 0.75rem;
+		padding: 0.7rem 1rem;
+		border-radius: 12px;
+		background: var(--starlight);
+		color: var(--void);
+		font-weight: 600;
+		text-decoration: none;
+		transform: translateY(-160%);
+		transition: transform 180ms ease;
+	}
+
+	.skip-link:focus {
+		transform: translateY(0);
+	}
+</style>

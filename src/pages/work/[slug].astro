@@ -1,0 +1,201 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+export const getStaticPaths = (async () => {
+	const includeDrafts = import.meta.env.DEV;
+	const entries = await getCollection('work', ({ data }) => includeDrafts || !data.draft);
+	return entries.map((entry) => ({
+		params: { slug: entry.id },
+		props: { entry },
+	}));
+}) satisfies GetStaticPaths;
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+
+const year = (value: Date) => value.getUTCFullYear();
+const period = entry.data.end
+	? year(entry.data.start) === year(entry.data.end)
+		? `${year(entry.data.start)}`
+		: `${year(entry.data.start)} - ${year(entry.data.end)}`
+	: `${year(entry.data.start)} - Present`;
+---
+
+<SiteLayout title={`${entry.data.title} - elure`} description={entry.data.description}>
+	<article>
+		<header class="entry-header">
+			<div class="shell entry-heading">
+				<a class="back-link" href="/work">← All work</a>
+				<p class="entry-meta">
+					{entry.data.kind} · {period}
+				</p>
+				<h1>{entry.data.title}</h1>
+				<p class="entry-org">
+					{entry.data.organisation}
+					{entry.data.location && <span> · {entry.data.location}</span>}
+				</p>
+				<p class="entry-description">{entry.data.description}</p>
+				{
+					entry.data.tags.length > 0 && (
+						<ul class="tag-list">
+							{entry.data.tags.map((tag) => (
+								<li>{tag}</li>
+							))}
+						</ul>
+					)
+				}
+			</div>
+		</header>
+
+		<div class="entry-body">
+			<div class="shell entry-story">
+				<div class="story-copy">
+					<Content />
+				</div>
+
+				<nav class="next-log" aria-label="Continue">
+					<a class="return-link" href="/work">All work</a>
+				</nav>
+			</div>
+		</div>
+	</article>
+</SiteLayout>
+
+<style>
+	.entry-header {
+		padding: 12rem 0 5rem;
+		border-bottom: 1px solid var(--line);
+		background: var(--void);
+	}
+
+	.entry-heading {
+		max-width: 1000px;
+	}
+
+	.back-link {
+		display: inline-block;
+		margin-bottom: 5rem;
+		color: var(--secondary);
+		font-size: 0.88rem;
+		text-decoration-color: var(--line-strong);
+	}
+
+	.entry-meta {
+		margin-bottom: 1.25rem;
+		color: var(--ultraviolet-hot);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.entry-org {
+		margin: 1.25rem 0 0;
+		color: var(--starlight);
+		font-size: 1.0625rem;
+		font-weight: 560;
+	}
+
+	.entry-org span {
+		color: var(--secondary);
+		font-weight: 400;
+	}
+
+	.entry-description {
+		max-width: 700px;
+		margin: 1rem 0 1.5rem;
+		color: var(--secondary);
+		font-size: clamp(1.06rem, 1.8vw, 1.25rem);
+		line-height: 1.58;
+	}
+
+	.tag-list {
+		display: flex;
+		margin: 0;
+		padding: 0;
+		flex-wrap: wrap;
+		gap: 0.45rem 1.25rem;
+		list-style: none;
+	}
+
+	.tag-list li {
+		color: var(--secondary);
+		font-size: 0.78rem;
+	}
+
+	.entry-body {
+		padding: clamp(4rem, 8vw, 7rem) 0 8rem;
+		background: var(--deep-space);
+	}
+
+	.entry-story {
+		max-width: 980px;
+	}
+
+	.story-copy {
+		max-width: var(--reading);
+		color: color-mix(in srgb, var(--starlight) 88%, var(--secondary));
+		font-size: 1.0625rem;
+		line-height: 1.75;
+	}
+
+	.story-copy :global(h2) {
+		margin: 3.5rem 0 1.2rem;
+		font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+	}
+
+	.story-copy :global(h3) {
+		margin: 2.5rem 0 0.8rem;
+		font-size: 1.35rem;
+	}
+
+	.story-copy :global(p),
+	.story-copy :global(ul),
+	.story-copy :global(ol) {
+		margin-top: 0;
+		margin-bottom: 1.65rem;
+	}
+
+	.story-copy :global(li) {
+		margin-bottom: 0.45rem;
+	}
+
+	.story-copy :global(a) {
+		color: var(--ultraviolet-hot);
+		font-weight: 560;
+	}
+
+	.next-log {
+		display: flex;
+		margin-top: 5rem;
+		padding-top: 2rem;
+		align-items: center;
+		justify-content: space-between;
+		gap: 2rem;
+		border-top: 1px solid var(--line);
+	}
+
+	.return-link {
+		color: var(--starlight);
+		font-size: 0.88rem;
+		font-weight: 590;
+		text-decoration: none;
+	}
+
+	.return-link:is(:hover, :focus-visible) {
+		text-decoration: underline;
+		text-underline-offset: 0.25em;
+	}
+
+	@media (max-width: 640px) {
+		.entry-header {
+			padding: 9rem 0 4rem;
+		}
+
+		.back-link {
+			margin-bottom: 3rem;
+		}
+	}
+</style>

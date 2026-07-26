@@ -1,0 +1,122 @@
+---
+import '../styles/global.css';
+import type { ImageMetadata } from 'astro';
+import { SITE_TITLE } from '../consts';
+import fontLatin from '../assets/fonts/atkinson-next.woff2?url';
+import fontLatinExt from '../assets/fonts/atkinson-next-ext.woff2?url';
+
+interface Props {
+	title: string;
+	description: string;
+	image?: ImageMetadata;
+	type?: 'website' | 'article';
+}
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const { title, description, image, type = 'website' } = Astro.props;
+const socialImage = image ? new URL(image.src, Astro.url) : undefined;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#030308" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" href="/favicon.ico" />
+<link rel="preload" href={fontLatin} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={fontLatinExt} as="font" type="font/woff2" crossorigin />
+<link rel="sitemap" href="/sitemap-index.xml" />
+<link rel="alternate" type="application/rss+xml" title={SITE_TITLE} href={new URL('rss.xml', Astro.site)} />
+<meta name="generator" content={Astro.generator} />
+
+<script is:inline>
+	(() => {
+		let saved = null;
+		try {
+			saved = localStorage.getItem('elure-theme');
+		} catch {
+
+		}
+		const theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+		document.documentElement.dataset.theme = theme;
+		document
+			.querySelector('meta[name="theme-color"]')
+			?.setAttribute('content', theme === 'light' ? '#f8f7ff' : '#030308');
+	})();
+</script>
+
+<link rel="canonical" href={canonicalURL} />
+<title>{title}</title>
+<meta name="description" content={description} />
+
+<meta property="og:type" content={type} />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+{socialImage && <meta property="og:image" content={socialImage} />}
+<meta property="og:site_name" content={SITE_TITLE} />
+
+<meta name="twitter:card" content={socialImage ? 'summary_large_image' : 'summary'} />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+
+<script>
+	const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+	const syncThemeColor = () => {
+		const color = document.documentElement.dataset.theme === 'light' ? '#f8f7ff' : '#030308';
+		themeColor?.setAttribute('content', color);
+	};
+
+	syncThemeColor();
+	new MutationObserver(syncThemeColor).observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['data-theme'],
+	});
+
+	const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+	const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+	if (finePointer.matches && !reducedMotion.matches) {
+		let pointerFrame = 0;
+		let pendingPointer: { button: HTMLElement; clientX: number; clientY: number } | undefined;
+
+		document.querySelectorAll<HTMLElement>('.button-primary').forEach((button) => {
+			const press = document.createElement('i');
+			press.className = 'press-point';
+			press.setAttribute('aria-hidden', 'true');
+			button.append(press);
+		});
+
+		const paintSpecular = () => {
+			pointerFrame = 0;
+			const pending = pendingPointer;
+			pendingPointer = undefined;
+			if (!pending?.button.isConnected) return;
+
+			const rect = pending.button.getBoundingClientRect();
+			const localX = Math.min(1, Math.max(0, (pending.clientX - rect.left) / rect.width));
+			const localY = Math.min(1, Math.max(0, (pending.clientY - rect.top) / rect.height));
+			pending.button.style.setProperty('--liquid-x', `${localX * 100}%`);
+			pending.button.style.setProperty('--liquid-y', `${localY * 100}%`);
+		};
+
+		document.addEventListener('pointermove', (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const button = target.closest<HTMLElement>('.button');
+			if (!button) return;
+
+			pendingPointer = { button, clientX: event.clientX, clientY: event.clientY };
+			if (!pointerFrame) pointerFrame = requestAnimationFrame(paintSpecular);
+		}, { passive: true });
+
+		document.addEventListener('pointerout', (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const button = target.closest<HTMLElement>('.button');
+			if (!button || (event.relatedTarget instanceof Node && button.contains(event.relatedTarget))) return;
+			if (pendingPointer?.button === button) pendingPointer = undefined;
+			button.style.removeProperty('--liquid-x');
+			button.style.removeProperty('--liquid-y');
+		});
+	}
+</script>

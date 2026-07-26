@@ -1,0 +1,361 @@
+---
+import PageHero from '../components/PageHero.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { cves, cveRecordUrl } from '../data/cves.ts';
+
+const disclosures = [...cves].sort((a, b) => b.published.localeCompare(a.published));
+const formatDate = (value: string) =>
+	new Date(`${value}T00:00:00Z`).toLocaleDateString('en-GB', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		timeZone: 'UTC',
+	});
+---
+
+<SiteLayout
+	title="About Mihnea-Luca - elure"
+	description="Mihnea-Luca “elure” Mărășescu is a Romanian high-schooler, CTF competitor, vulnerability researcher, and founder of OmniCYBR."
+>
+	<PageHero
+		kicker="About"
+		title="Mihnea-Luca “elure” Mărășescu."
+		description="Cybersecurity, Infra and Hardware."
+	>
+		<a class="hero-email" href="mailto:mihnea@elure.dev">
+			<span aria-hidden="true">
+				<svg viewBox="0 0 24 24">
+					<rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+					<path d="m3.8 7 7.3 5.4a1.5 1.5 0 0 0 1.8 0L20.2 7" />
+				</svg>
+			</span>
+			mihnea@elure.dev
+		</a>
+	</PageHero>
+
+	<section class="about-section" aria-labelledby="biography-title">
+		<div class="shell editorial-flow">
+			<div class="editorial-section">
+				<h2 id="biography-title" class="editorial-label">Biography</h2>
+				<div class="biography-copy">
+					<p class="lead">
+						I’m Mihnea-Luca “elure” Mărășescu, a Romanian high-schooler, CTF competitor,
+						vulnerability researcher, and founder of OmniCYBR.
+					</p>
+					<p>
+						I build security and systems projects. My current work includes OmniCYBR,
+						vulnerability research with disclosed CVEs, hardware, and a homelab.
+					</p>
+				</div>
+			</div>
+
+			<section id="disclosures" class="editorial-section" aria-labelledby="disclosures-title">
+				<h2 id="disclosures-title" class="editorial-label">Disclosures</h2>
+				<div class="disclosure-copy">
+					<ol class="cve-list">
+						{
+							disclosures.map((entry) => (
+								<li class="cve-entry">
+									<div class="cve-head">
+										<a
+											class="cve-id"
+											href={cveRecordUrl(entry.id)}
+											rel="noopener noreferrer"
+											target="_blank"
+										>
+											{entry.id}
+										</a>
+										<p class="cve-where">{entry.product} · {formatDate(entry.published)}</p>
+									</div>
+									<p class="cve-summary">{entry.summary}</p>
+									<p class="cve-versions mono">
+										Affected {entry.affected.join(' · ')} - fixed in {entry.fixed.join(' · ')}
+									</p>
+								</li>
+							))
+						}
+					</ol>
+				</div>
+			</section>
+
+			<section class="editorial-section" aria-labelledby="practice-title">
+				<h2 id="practice-title" class="editorial-label">Practice</h2>
+				<dl class="practice-list">
+					<div>
+						<dt>Research</dt>
+						<dd>Investigate software behaviour and document findings.</dd>
+					</div>
+					<div>
+						<dt>Compete</dt>
+						<dd>Solve CTF challenges and work with teams.</dd>
+					</div>
+					<div>
+						<dt>Build</dt>
+						<dd>Develop platforms, hardware, and infrastructure.</dd>
+					</div>
+					<div>
+						<dt>Document</dt>
+						<dd>Publish methods, decisions, and lessons.</dd>
+					</div>
+				</dl>
+			</section>
+		</div>
+	</section>
+
+	<section id="explore" class="explore-area" aria-labelledby="explore-title">
+		<div class="shell explore-grid">
+			<div>
+				<p class="editorial-label">Explore</p>
+				<h2 id="explore-title">Projects, writing, and updates.</h2>
+				<p class="explore-note">Browse published work or follow updates through RSS.</p>
+			</div>
+			<nav class="explore-links" aria-label="Explore elure.dev">
+				<a href="/work">Work and qualifications</a>
+				<a href="/blog">Writing archive</a>
+				<a href="/rss.xml">RSS feed</a>
+			</nav>
+		</div>
+	</section>
+</SiteLayout>
+
+<style>
+	.about-section {
+		padding: clamp(5.5rem, 10vw, 9rem) 0;
+		background: var(--deep-space);
+	}
+
+	.editorial-flow {
+		max-width: 1120px;
+	}
+
+	.editorial-section {
+		display: grid;
+		grid-template-columns: minmax(9rem, 0.34fr) minmax(0, 1fr);
+		gap: clamp(2.5rem, 7vw, 6.5rem);
+		align-items: start;
+	}
+
+	.editorial-section + .editorial-section {
+		margin-top: clamp(5rem, 10vw, 8rem);
+		padding-top: clamp(3rem, 6vw, 5rem);
+		border-top: 1px solid var(--line);
+	}
+
+	.editorial-label {
+		margin: 0;
+		color: var(--secondary);
+		font-size: 0.88rem;
+		font-weight: 560;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+
+	.biography-copy {
+		max-width: 70ch;
+	}
+
+	.biography-copy p {
+		color: var(--secondary);
+		font-size: 1.0625rem;
+	}
+
+	.biography-copy .lead {
+		color: var(--starlight);
+		font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+		font-weight: 500;
+		letter-spacing: -0.025em;
+		line-height: 1.4;
+	}
+
+	.biography-copy p:last-child {
+		margin-bottom: 0;
+	}
+
+	.hero-email {
+		display: inline-flex;
+		min-height: 44px;
+		margin-top: 1.75rem;
+		align-items: center;
+		gap: 0.55rem;
+		color: var(--starlight);
+		font-size: 1rem;
+		font-weight: 560;
+		text-decoration: none;
+		transition: color 160ms ease;
+	}
+
+	.hero-email:is(:hover, :focus-visible) {
+		color: var(--ultraviolet-hot);
+	}
+
+	.hero-email span {
+		display: inline-flex;
+		width: 18px;
+		height: 18px;
+		flex: 0 0 auto;
+	}
+
+	.hero-email svg {
+		width: 100%;
+		height: 100%;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-width: 1.6;
+	}
+
+	.disclosure-copy {
+		max-width: 70ch;
+	}
+
+	.cve-list {
+		margin: 0;
+		padding: 0;
+		border-top: 1px solid var(--line);
+		list-style: none;
+	}
+
+	.cve-entry {
+		padding: 1.6rem 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.cve-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.25rem 0.85rem;
+	}
+
+	.cve-id {
+		color: var(--ultraviolet-hot);
+		font-size: 1rem;
+		font-weight: 620;
+		letter-spacing: -0.01em;
+		text-decoration: none;
+	}
+
+	.cve-id:is(:hover, :focus-visible) {
+		text-decoration: underline;
+		text-underline-offset: 0.25em;
+	}
+
+	.cve-where {
+		margin: 0;
+		color: var(--secondary);
+		font-size: 0.82rem;
+	}
+
+	.cve-summary {
+		margin: 0.7rem 0 0;
+		color: var(--starlight);
+		font-size: 0.88rem;
+		line-height: 1.6;
+	}
+
+	.cve-versions {
+		margin: 0.7rem 0 0;
+		color: var(--quiet);
+		font-size: 0.75rem;
+	}
+
+	.practice-list {
+		margin: 0;
+	}
+
+	.practice-list > div {
+		display: grid;
+		grid-template-columns: minmax(9rem, 0.42fr) minmax(0, 1fr);
+		gap: clamp(1.5rem, 4vw, 3.5rem);
+		padding: 1.5rem 0;
+		border-top: 1px solid var(--line);
+	}
+
+	.practice-list > div:last-child {
+		border-bottom: 1px solid var(--line);
+	}
+
+	.practice-list dt {
+		color: var(--starlight);
+		font-size: 1rem;
+		font-weight: 560;
+		line-height: 1.4;
+	}
+
+	.practice-list dd {
+		max-width: 48ch;
+		margin: 0;
+		color: var(--secondary);
+		font-size: 0.88rem;
+		line-height: 1.55;
+	}
+
+	.explore-area {
+		padding: clamp(5.5rem, 10vw, 8rem) 0;
+		border-top: 1px solid var(--line);
+		background: var(--void);
+	}
+
+	.explore-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+		gap: clamp(3rem, 8vw, 8rem);
+		align-items: end;
+	}
+
+	.explore-grid h2 {
+		max-width: 740px;
+		margin-top: 1.25rem;
+		font-size: clamp(2.6rem, 5vw, 4.8rem);
+	}
+
+	.explore-note {
+		max-width: 660px;
+		margin: 1.5rem 0 0;
+		color: var(--secondary);
+		font-size: 0.88rem;
+	}
+
+	.explore-links {
+		display: grid;
+		border-top: 1px solid var(--line);
+	}
+
+	.explore-links a {
+		display: flex;
+		min-height: 62px;
+		align-items: center;
+		border-bottom: 1px solid var(--line);
+		color: var(--starlight);
+		font-size: 0.88rem;
+		text-decoration: none;
+		transition: color 160ms ease;
+	}
+
+	.explore-links a:hover {
+		color: var(--ultraviolet-hot);
+	}
+
+	@media (max-width: 900px) {
+		.editorial-section,
+		.explore-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.editorial-section {
+			gap: 1.5rem;
+		}
+
+		.explore-grid {
+			gap: 3rem;
+		}
+	}
+
+	@media (max-width: 600px) {
+		.practice-list > div {
+			grid-template-columns: 1fr;
+			gap: 0.35rem;
+		}
+	}
+</style>

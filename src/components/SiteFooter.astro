@@ -1,0 +1,302 @@
+---
+const links = [
+	{ href: '/work', label: 'Work', icon: 'work', shift: '0rem', drop: '0rem' },
+	{ href: '/blog', label: 'Writing', icon: 'writing', shift: '2.4rem', drop: '0.5rem' },
+	{ href: '/writeups', label: 'Writeups', icon: 'writeups', shift: '0.9rem', drop: '0.35rem' },
+	{ href: '/about', label: 'About', icon: 'about', shift: '3.1rem', drop: '0.4rem' },
+];
+---
+
+<footer class="site-footer">
+	<div class="shell footer-grid">
+		<div class="footer-brand">
+			<a href="/" aria-label="Elure home">
+				<!-- viewBox is cropped to the glyph bounds so the mark fills its box. -->
+				<svg class="footer-mark" viewBox="263 245 500 500" aria-hidden="true" focusable="false">
+					<path d="M 500.50 701.96 L 414.50 701.42 L 404.50 698.78 C385.57,693.79 372.38,688.19 358.50,679.23 C325.27,657.80 302.45,624.31 294.35,585.10 C292.17,574.53 291.75,569.84 291.74,556.00 C291.72,538.14 293.35,527.52 298.56,511.50 C318.74,449.46 377.04,408.67 441.84,411.28 C464.46,412.19 478.95,415.89 499.50,426.01 C527.93,440.00 549.49,461.87 564.08,491.47 C575.26,514.16 579.69,536.00 578.75,563.86 L 578.24 579.22 L 575.10 582.36 L 571.96 585.50 L 483.80 585.77 C433.56,585.92 395.25,585.65 394.75,585.15 C393.77,584.17 418.09,534.71 420.21,533.33 C420.92,532.87 444.00,532.28 471.50,532.00 L 521.50 531.50 L 521.33 528.85 C521.09,525.31 515.12,512.53 510.34,505.33 C482.81,463.85 426.42,452.91 385.00,481.01 C364.79,494.72 350.63,516.65 346.31,540.93 C344.40,551.67 345.11,569.36 347.87,580.00 C350.16,588.82 355.53,600.98 360.11,607.71 C369.69,621.80 388.55,636.98 403.75,642.84 C418.89,648.68 421.23,648.84 493.64,649.09 L 559.78 649.31 L 561.48 652.91 C568.23,667.17 584.37,685.12 599.39,695.07 C604.68,698.57 607.72,701.15 606.89,701.44 C604.15,702.40 585.25,702.49 500.50,701.96 ZM 653.00 700.51 C627.39,695.40 602.65,680.80 587.33,661.75 C575.47,647.01 567.41,626.42 566.78,609.28 L 566.50 601.51 L 572.25 600.89 C582.58,599.77 590.82,591.98 593.05,581.26 C594.98,571.95 593.76,533.61 591.17,522.45 C586.78,503.52 577.63,480.85 569.65,469.15 L 566.00 463.80 L 566.00 400.56 C566.00,340.62 566.10,336.91 568.00,329.51 C573.91,306.38 592.06,290.43 615.73,287.57 L 620.97 286.94 L 620.32 443.79 C619.81,567.61 619.93,602.00 620.92,607.07 C623.59,620.71 635.11,636.14 647.50,642.65 C659.87,649.16 661.08,649.32 699.37,649.76 L 734.24 650.16 L 733.81 658.99 C733.45,666.71 732.92,668.78 729.65,675.39 C723.60,687.64 713.67,696.43 701.66,700.18 C696.85,701.68 692.62,701.98 677.66,701.91 C667.18,701.85 656.75,701.26 653.00,700.51 Z" />
+				</svg>
+			</a>
+		</div>
+
+		<nav class="footer-nav" aria-label="Footer navigation" data-footer-nav>
+			{
+				links.map((link) => (
+					<a href={link.href} style={`--shift:${link.shift};--drop:${link.drop}`}>
+						<span class="link-icon" aria-hidden="true">
+							{link.icon === 'work' && (
+								<svg viewBox="0 0 24 24">
+									<rect x="3" y="7.5" width="18" height="12.5" rx="2.5" />
+									<path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3 12.5h18" />
+								</svg>
+							)}
+							{link.icon === 'writing' && (
+								<svg viewBox="0 0 24 24">
+									<path d="M5 20h14M6.5 16.2 16.8 5.9a2.1 2.1 0 0 1 3 3L9.5 19.2l-4 1 1-4Z" />
+								</svg>
+							)}
+							{link.icon === 'writeups' && (
+								<svg viewBox="0 0 24 24">
+									<path d="M4 4.5h11l1.6 2.4H20v8.6h-9L9.4 13H4z" />
+									<path d="M4 13v7" />
+								</svg>
+							)}
+							{link.icon === 'about' && (
+								<svg viewBox="0 0 24 24">
+									<circle cx="12" cy="8.5" r="3.8" />
+									<path d="M4.8 20a7.4 7.4 0 0 1 14.4 0" />
+								</svg>
+							)}
+						</span>
+						<span class="link-label">{link.label}</span>
+					</a>
+				))
+			}
+		</nav>
+
+		<div class="footer-meta">
+			<a class="footer-email" href="mailto:mihnea@elure.dev">
+				<span class="link-icon" aria-hidden="true">
+					<svg viewBox="0 0 24 24">
+						<rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+						<path d="m3.8 7 7.3 5.4a1.5 1.5 0 0 0 1.8 0L20.2 7" />
+					</svg>
+				</span>
+				mihnea@elure.dev
+			</a>
+			<div>
+				<a href="/rss.xml">RSS</a>
+				<a href="/search">Search</a>
+			</div>
+			<p>© {new Date().getFullYear()} Mihnea-Luca Mărășescu</p>
+		</div>
+	</div>
+</footer>
+
+<script>
+	const nav = document.querySelector<HTMLElement>('[data-footer-nav]');
+
+	if (nav) {
+		const links = [...nav.querySelectorAll<HTMLElement>('a')];
+		const BOX_HEIGHT = 190;
+		const GAP = 8;
+
+		const overlaps = (a: DOMRect, b: DOMRect) =>
+			a.left - GAP < b.right && a.right + GAP > b.left && a.top - GAP < b.bottom && a.bottom + GAP > b.top;
+
+		const scatter = () => {
+			nav.classList.remove('scattered');
+			links.forEach((link) => {
+				link.style.left = '';
+				link.style.top = '';
+			});
+
+			const boxWidth = nav.clientWidth;
+			const sizes = links.map((link) => ({
+				w: link.offsetWidth,
+				h: link.offsetHeight,
+			}));
+			const widest = Math.max(...sizes.map((size) => size.w));
+
+			if (boxWidth < widest + 40) return;
+
+			const placed: DOMRect[] = [];
+			nav.classList.add('scattered');
+
+			links.forEach((link, index) => {
+				const { w, h } = sizes[index];
+				const spanX = Math.max(0, boxWidth - w);
+				const spanY = Math.max(0, BOX_HEIGHT - h);
+				let best = { x: 0, y: 0, score: Number.POSITIVE_INFINITY };
+
+				for (let attempt = 0; attempt < 200; attempt++) {
+					const x = Math.random() * spanX;
+					const y = Math.random() * spanY;
+					const rect = new DOMRect(x, y, w, h);
+					const clashes = placed.filter((other) => overlaps(rect, other)).length;
+					if (clashes < best.score) best = { x, y, score: clashes };
+					if (clashes === 0) break;
+				}
+
+				placed.push(new DOMRect(best.x, best.y, w, h));
+				link.style.left = `${best.x}px`;
+				link.style.top = `${best.y}px`;
+			});
+		};
+
+		scatter();
+
+		let resizeFrame = 0;
+		addEventListener('resize', () => {
+			clearTimeout(resizeFrame);
+			resizeFrame = window.setTimeout(scatter, 160);
+		});
+	}
+</script>
+
+<style>
+	.site-footer {
+		padding: 4.5rem 0 2.5rem;
+		border-top: 1px solid var(--line);
+		background: var(--deep-space);
+	}
+
+	.footer-grid {
+		display: grid;
+		grid-template-columns: 1.35fr 0.65fr 0.9fr;
+		gap: clamp(2.5rem, 7vw, 7rem);
+	}
+
+	.footer-brand > a {
+		display: inline-block;
+		color: var(--starlight);
+		line-height: 0;
+		text-decoration: none;
+	}
+
+	.footer-mark {
+		display: block;
+		width: 38px;
+		height: 38px;
+		fill: currentColor;
+		transition: opacity 180ms ease;
+	}
+
+	.footer-brand > a:is(:hover, :focus-visible) .footer-mark {
+		opacity: 0.7;
+	}
+
+	.footer-nav {
+		display: grid;
+		align-content: start;
+		gap: 0.15rem;
+	}
+
+	.footer-nav.scattered {
+		position: relative;
+		display: block;
+		height: 190px;
+	}
+
+	.footer-nav.scattered a {
+		position: absolute;
+		transform: none;
+	}
+
+	.footer-nav.scattered a:is(:hover, :focus-visible) {
+		transform: translateX(0.3rem);
+	}
+
+	.footer-nav a {
+		display: inline-flex;
+		width: max-content;
+		min-height: 40px;
+		align-items: center;
+		gap: 0.6rem;
+		color: var(--secondary);
+		font-size: 0.86rem;
+		text-decoration: none;
+		transform: translate(var(--shift, 0), var(--drop, 0));
+		transition:
+			color 160ms ease,
+			transform 260ms var(--ease-out);
+	}
+
+	.footer-nav a:is(:hover, :focus-visible) {
+		color: var(--starlight);
+		transform: translate(calc(var(--shift, 0rem) + 0.3rem), var(--drop, 0));
+	}
+
+	.link-icon {
+		display: inline-flex;
+		width: 17px;
+		height: 17px;
+		flex: 0 0 auto;
+	}
+
+	.link-icon svg {
+		width: 100%;
+		height: 100%;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-width: 1.6;
+	}
+
+	.footer-meta {
+		display: grid;
+		align-content: start;
+		justify-items: end;
+		gap: 0.9rem;
+		color: var(--secondary);
+		font-size: 0.77rem;
+		text-align: right;
+	}
+
+	.footer-meta p {
+		margin: 0;
+	}
+
+	.footer-email {
+		display: inline-flex;
+		min-height: 40px;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--starlight);
+		font-size: 0.86rem;
+		text-decoration: none;
+		transition: color 160ms ease;
+	}
+
+	.footer-email:is(:hover, :focus-visible) {
+		color: var(--ultraviolet-hot);
+	}
+
+	.footer-meta > div {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.footer-meta a {
+		color: var(--secondary);
+		text-decoration: none;
+		transition: color 160ms ease;
+	}
+
+	.footer-meta a:hover {
+		color: var(--starlight);
+	}
+
+	@media (max-width: 760px) {
+		.footer-grid {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.footer-meta {
+			grid-column: 1 / -1;
+			justify-items: start;
+			text-align: left;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.footer-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.footer-meta {
+			grid-column: auto;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.footer-nav a,
+		.footer-mark {
+			transition: none;
+		}
+
+		.footer-nav a:is(:hover, :focus-visible) {
+			transform: translate(var(--shift, 0), var(--drop, 0));
+		}
+	}
+</style>

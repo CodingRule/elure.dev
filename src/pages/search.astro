@@ -1,0 +1,228 @@
+---
+import { getCollection } from 'astro:content';
+import PageHero from '../components/PageHero.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
+
+const includeDrafts = import.meta.env.DEV;
+const posts = (await getCollection('blog', ({ data }) => includeDrafts || !data.draft)).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const workEntries = await getCollection('work', ({ data }) => includeDrafts || !data.draft);
+const searchItems = [
+	...posts.map((post) => ({
+		type: post.data.draft ? 'Draft preview' : 'Article',
+		title: post.data.title,
+		description: post.data.description,
+		href: `/blog/${post.id}`,
+		keywords: [post.data.category, ...post.data.tags].join(' '),
+	})),
+	...workEntries.map((entry) => ({
+		type: entry.data.draft ? 'Draft entry' : entry.data.kind,
+		title: entry.data.title,
+		description: `${entry.data.organisation}. ${entry.data.description}`,
+		href: `/work/${entry.id}`,
+		keywords: [entry.data.organisation, entry.data.kind, ...entry.data.tags].join(' '),
+	})),
+];
+const emptyDescription = includeDrafts
+	? 'Results include published articles, local draft previews, and projects.'
+	: 'Results include published articles and projects.';
+---
+
+<SiteLayout title="Search - elure" description="Search the Elure publication and project archive.">
+	<PageHero
+		kicker="Search"
+		title="Search articles and projects."
+		description="Search titles, descriptions, categories, and tags. The index runs in your browser."
+	/>
+
+	<section class="search-section">
+		<div class="narrow-shell">
+			<label class="search-box">
+				<span class="sr-only">Search</span>
+				<input data-global-search type="search" placeholder="Search articles and projects" />
+				<button type="button" data-reset aria-label="Clear search">×</button>
+			</label>
+
+			<p class="search-count" data-search-count role="status" aria-live="polite" aria-atomic="true">
+				Enter a search term.
+			</p>
+
+			<div class="search-results">
+				{
+					searchItems.map((item) => (
+						<a
+							href={item.href}
+							data-search-item
+							data-search={`${item.title} ${item.description} ${item.keywords}`.toLowerCase()}
+							hidden
+						>
+							<span class="type">{item.type}</span>
+							<div><h2>{item.title}</h2><p>{item.description}</p></div>
+						</a>
+					))
+				}
+			</div>
+
+			<div class="search-empty" data-search-empty>
+				<h2>Search articles and projects</h2>
+				<p>{emptyDescription}</p>
+			</div>
+		</div>
+	</section>
+</SiteLayout>
+
+<script is:inline define:vars={{ emptyDescription }}>
+	const input = document.querySelector('[data-global-search]');
+	const reset = document.querySelector('[data-reset]');
+	const items = [...document.querySelectorAll('[data-search-item]')];
+	const count = document.querySelector('[data-search-count]');
+	const empty = document.querySelector('[data-search-empty]');
+
+	const update = () => {
+		const query = (input?.value || '').trim().toLowerCase();
+		let visible = 0;
+		items.forEach((item) => {
+			const show = query.length > 0 && item.dataset.search?.includes(query);
+			item.hidden = !show;
+			if (show) visible++;
+		});
+		if (count) count.textContent = query
+			? `${visible} ${visible === 1 ? 'result' : 'results'} for “${query}”.`
+			: 'Enter a search term.';
+		if (empty) {
+			empty.hidden = query.length > 0 && visible > 0;
+			const title = empty.querySelector('h2');
+			const text = empty.querySelector('p');
+			if (query && !visible) {
+				title.textContent = 'No results.';
+				text.textContent = 'Try a different term, category, or project name.';
+			} else {
+				title.textContent = 'Search articles and projects';
+				text.textContent = emptyDescription;
+			}
+		}
+	};
+
+	input?.addEventListener('input', update);
+	reset?.addEventListener('click', () => {
+		input.value = '';
+		update();
+		input.focus();
+	});
+
+	const initial = new URLSearchParams(location.search).get('q');
+	if (initial && input) {
+		input.value = initial;
+		update();
+	}
+</script>
+
+<style>
+	.search-section {
+		min-height: 700px;
+		padding: 5rem 0 10rem;
+		background: var(--deep-space);
+	}
+
+	.search-box {
+		display: flex;
+		min-height: 74px;
+		padding: 0 1.2rem;
+		align-items: center;
+		gap: 1rem;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+
+	.search-box:focus-within {
+		outline: 2px solid var(--electric-blue);
+		outline-offset: 4px;
+	}
+
+	.search-box input {
+		min-width: 0;
+		flex: 1;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: var(--starlight);
+		font-size: clamp(1.05rem, 2vw, 1.35rem);
+	}
+
+	.search-box input::placeholder {
+		color: var(--quiet);
+	}
+
+	.search-box button {
+		width: 44px;
+		height: 44px;
+		min-width: 44px;
+		min-height: 44px;
+		border: 0;
+		border-radius: 50%;
+		background: transparent;
+		color: var(--secondary);
+		cursor: pointer;
+	}
+
+	.search-count {
+		margin: 1.2rem 0 3rem;
+		color: var(--quiet);
+		font-size: 0.82rem;
+	}
+
+	.search-results {
+		border-top: 1px solid var(--line-strong);
+	}
+
+	.search-results a {
+		display: grid;
+		min-height: 170px;
+		padding: 2rem 0;
+		grid-template-columns: 90px minmax(0, 1fr);
+		gap: 1.5rem;
+		align-items: center;
+		border-bottom: 1px solid var(--line);
+		color: var(--starlight);
+		text-decoration: none;
+	}
+
+	.search-results a:is(:hover, :focus-visible) h2 {
+		color: var(--ultraviolet-hot);
+	}
+
+	.type {
+		color: var(--ultraviolet-hot);
+		font-size: 0.78rem;
+		font-weight: 580;
+	}
+
+	.search-results h2 {
+		font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+	}
+
+	.search-results p {
+		max-width: 680px;
+		margin: 0.65rem 0 0;
+		color: var(--secondary);
+	}
+
+	.search-empty {
+		padding: 6rem 0;
+		text-align: center;
+	}
+
+	.search-empty p {
+		color: var(--secondary);
+	}
+
+	@media (max-width: 640px) {
+		.search-results a {
+			min-height: 0;
+			grid-template-columns: 1fr;
+			gap: 0.65rem;
+		}
+	}
+</style>
