@@ -1,0 +1,84 @@
+---
+title: 'OmniCYBR 2026 Quals Infra & Problems'
+description: 'A look at the infrastructure behind OmniCTF 2026 Quals, the last-minute move from AWS to Google Cloud, and the problems that occurred during the event.'
+category: 'Infrastructure'
+tags: ['OmniCTF', 'CTF', 'Infrastructure', 'Kubernetes', 'rCTF', 'Google Cloud']
+pubDate: 2026-07-26
+featured: true
+draft: false
+---
+
+Last weekend, we delivered a new event to the CTF community:
+[OmniCTF 2026 Quals](https://ctftime.org/event/3104).
+
+I was the only person responsible for the infrastructure and all challenge
+pods. It was a difficult job, especially after AWS restricted our account one
+day before the CTF.
+
+I also had my Cambridge C2 exam on the last day of the CTF. Managing the exam
+and the event at the same time made the weekend even more difficult. 😭
+
+We had to move the full setup to Google Cloud as fast as possible. The
+USD 300 free-trial credit was useful, but it did not cover the full cost. We
+had to pay approximately EUR 110 out of our own pockets. 😭
+
+## My work during the event
+
+I managed the infrastructure, the challenge instances, and the files that the
+instancers used. I also authored or helped to author many challenges.
+
+I had more time to work on challenges this year. However, the final challenge
+set was not as polished as I wanted. I hope that we can use a better development
+and testing process next year.
+
+## The infrastructure load
+
+The first dashboard shows the number of concurrent instances for each
+challenge. The workload changed substantially during the event. At the busiest
+point, the platform ran close to 300 concurrent challenge instances.
+
+![Concurrent challenge instances during OmniCTF 2026 Quals](/images/blog/omnicybr-2026/concurrent-instances.png)
+
+The full Grafana dashboard gives more context. It shows the average concurrent
+instances, instance starts, node CPU usage, and node memory usage.
+
+![OmniCTF 2026 Quals infrastructure dashboard](/images/blog/omnicybr-2026/infrastructure-dashboard.png)
+
+Some challenges had a much higher load than others. For example, `ganzir`
+reached 52 concurrent instances and had 574 instance starts. `staywild`
+reached 46 concurrent instances and had 355 starts. The CPU and memory graphs
+also show the short load spikes that occurred near the end of the event.
+
+## The last-minute cloud migration
+
+AWS restricted our account one day before the CTF. AWS restored access about
+four hours before the event and then restricted the account again.
+
+This forced us to prepare the infrastructure quickly on Google Cloud. The fast
+migration caused many of the infrastructure problems that we saw during the
+CTF. I do not plan to use AWS for this event again.
+
+The AWS activity was not an attack. I gave a friend access so that they could
+help me upload and organize the challenge files. The instancers required these
+files to start the challenge environments.
+
+## The platform
+
+This year, we used [**rCTF v2**](https://github.com/otter-sec/rctf). It is a CTF
+platform created by [**es3n1n**](https://github.com/es3n1n) and the OtterSec
+Team. It is the best CTF platform that I have used.
+
+Special thanks to es3n1n for listening to my AWS problems.
+
+I will not publish our configuration files. For a detailed example of a good
+CTF infrastructure setup, read es3n1n's
+[SekaiCTF 2026 infrastructure write-up](https://blog.es3n1n.eu/posts/sekaictf-2026-infra-writeup/#our-lovely-custom-kubernetes-operator).
+
+## Sponsors and thanks
+
+Many sponsors helped us make this event possible. Special thanks to Orange and
+OtterSec for their financial support for the finals. Orange asked to remain
+anonymous during the qualification stage.
+
+Thank you to everyone who played, helped, or supported OmniCTF 2026 Quals. The
+event had rough edges, but it gave us useful lessons for the next edition.
