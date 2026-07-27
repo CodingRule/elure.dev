@@ -1,7 +1,7 @@
 ---
 title: 'The Tree - Technoblade'
 description: 'A reflection on Technoblade’s unexpectedly moving monologue, growing up, and leaving behind the cocoon that once protected us.'
-category: 'Personal'
+category: 'Personal Notes'
 tags: ['Technoblade', 'Reflection', 'Gaming', 'Prose Poetry']
 pubDate: 2026-07-27
 featured: true
