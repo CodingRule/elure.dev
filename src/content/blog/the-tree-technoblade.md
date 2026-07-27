@@ -1,12 +1,11 @@
 ---
-title: "The Tree"
-description: "An existential monologue by Technoblade, lightly edited and formatted as prose poetry."
+title: 'The Tree - Technoblade'
+description: 'A reflection on Technoblade’s unexpectedly moving monologue, growing up, and leaving behind the cocoon that once protected us.'
+category: 'Personal'
+tags: ['Technoblade', 'Reflection', 'Gaming', 'Prose Poetry']
 pubDate: 2026-07-27
-tags:
-  - technoblade
-  - poetry
-  - gaming
-  - archive
+featured: true
+draft: false
 ---
 
 # The Tree
